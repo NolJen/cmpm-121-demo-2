@@ -27,39 +27,58 @@ if (context) {
 // When true, moving the mouse draws on the canvas
 // Variables to keep track of drawing state 
 let isDrawing = false;
-let x = 0;
-let y = 0;
+let currentLine: { x: number; y: number }[] = [];
+const lines: { x: number; y: number }[][] = [];
 
 // Function to draw a line on the canvas
-const drawLine = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) => {
+const drawLine = (ctx: CanvasRenderingContext2D, startX: number, startY: number, endX: number, endY: number) => {
     ctx.beginPath();
     ctx.strokeStyle = "black";
     ctx.lineWidth = 1;
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(endX, endY);
     ctx.stroke();
     ctx.closePath();
 };
 
+// Function to redraw all lines
+const redrawLines = () => {
+    if (context) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "#7EC6E5";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        for (const line of lines) {
+            for (let i = 1; i < line.length; i++) {
+                drawLine(context, line[i - 1].x, line[i - 1].y, line[i].x, line[i].y);
+            }
+        }
+    }
+};
+
 // Event listeners for mouse actions
 canvas.addEventListener("mousedown", (e) => {
-    x = e.offsetX;
-    y = e.offsetY;
+    currentLine = [{ x: e.offsetX, y: e.offsetY }];
     isDrawing = true;
 });
 
 canvas.addEventListener("mousemove", (e) => {
-    if (isDrawing && context) {
-        drawLine(context, x, y, e.offsetX, e.offsetY);
-        x = e.offsetX;
-        y = e.offsetY;
+    if (isDrawing) {
+        currentLine.push({ x: e.offsetX, y: e.offsetY });
+        canvas.dispatchEvent(new Event("drawing-changed"));
     }
 });
 
 globalThis.addEventListener("mouseup", () => {
     if (isDrawing) {
         isDrawing = false;
+        lines.push(currentLine);
+        canvas.dispatchEvent(new Event("drawing-changed"));
     }
+});
+
+// Observer for the "drawing-changed" event
+canvas.addEventListener("drawing-changed", () => {
+    redrawLines();
 });
 
 // Add a "clear" button and make it clear the canvas.
@@ -68,6 +87,7 @@ clearButton.innerText = "Clear";
 app.appendChild(clearButton);
 
 clearButton.addEventListener("click", () => {
+    lines.length = 0;
     if (context) {
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.fillStyle = "#7EC6E5";
