@@ -29,6 +29,7 @@ if (context) {
 let isDrawing = false;
 let currentLine: { x: number; y: number }[] = [];
 const lines: { x: number; y: number }[][] = [];
+const redoStack: { x: number; y: number }[][] = [];
 
 // Function to draw a line on the canvas
 const drawLine = (ctx: CanvasRenderingContext2D, startX: number, startY: number, endX: number, endY: number) => {
@@ -72,6 +73,7 @@ globalThis.addEventListener("mouseup", () => {
     if (isDrawing) {
         isDrawing = false;
         lines.push(currentLine);
+        redoStack.length = 0;
         canvas.dispatchEvent(new Event("drawing-changed"));
     }
 });
@@ -88,9 +90,40 @@ app.appendChild(clearButton);
 
 clearButton.addEventListener("click", () => {
     lines.length = 0;
+    redoStack.length = 0;
     if (context) {
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.fillStyle = "#7EC6E5";
         context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+});
+
+// Add an "undo" button
+const undoButton = document.createElement("button");
+undoButton.innerText = "Undo";
+app.appendChild(undoButton);
+
+undoButton.addEventListener("click", () => {
+    if (lines.length > 0) {
+        const lastLine = lines.pop();
+        if (lastLine) {
+            redoStack.push(lastLine);
+        }
+        canvas.dispatchEvent(new Event("drawing-changed"));
+    }
+});
+
+// Add a "redo" button
+const redoButton = document.createElement("button");
+redoButton.innerText = "Redo";
+app.appendChild(redoButton);
+
+redoButton.addEventListener("click", () => {
+    if (redoStack.length > 0) {
+        const lastRedo = redoStack.pop();
+        if (lastRedo) {
+            lines.push(lastRedo);
+        }
+        canvas.dispatchEvent(new Event("drawing-changed"));
     }
 });
