@@ -36,8 +36,16 @@ interface MarkerLine {
 interface ToolPreview {
     x: number;
     y: number;
-    lineWidth: number
+    lineWidth: number;
     draw: (ctx: CanvasRenderingContext2D) => void;
+} 
+
+interface Sticker {
+    x: number;
+    y: number;
+    emoji: string;
+    drag: (x: number, y: number) => void;
+    display: (ctx: CanvasRenderingContext2D) => void;
 } 
 
 const createMarkerLine = (startX: number, startY: number, lineWidth: number): MarkerLine => {
@@ -77,22 +85,48 @@ const createToolPreview = (x: number, y: number, lineWidth: number): ToolPreview
     return { x, y, lineWidth, draw };
 }; 
 
+const createSticker = (x: number, y: number, emoji: string): Sticker => {
+    const drag = (newX: number, newY: number) => {
+        x = newX;
+        y = newY;
+    };
+
+    const display = (ctx: CanvasRenderingContext2D) => {
+        ctx.font = "30px serif";
+        ctx.fillText(emoji, x, y);
+    };
+
+    return { x, y, emoji, drag, display };
+}; 
+
+const createStickerPreview = (x: number, y: number, emoji: string): ToolPreview => {
+    const draw = (ctx: CanvasRenderingContext2D) => {
+        ctx.font = "30px serif";
+        ctx.fillText(emoji, x, y);
+    };
+
+    return { x, y, lineWidth: 0, draw };
+}; 
+
 
 // Variables to keep track of drawing state 
 let isDrawing = false;
 let currentLine: MarkerLine | null = null;
 let currentLineWidth = 1;
 let toolPreview: ToolPreview | null = null;
+let currentSticker: Sticker | null = null;
 const lines: MarkerLine[] = [];
+const stickers: Sticker[] = [];
 const redoStack: MarkerLine[] = [];
 
-// Function to redraw all lines and tool preview
+// Function to redraw all lines stickers, and tool preview
 const redrawLines = () => {
     if (context) {
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.fillStyle = "#7EC6E5";
         context.fillRect(0, 0, canvas.width, canvas.height);
         lines.forEach(line => line.display(context));
+        stickers.forEach(sticker => sticker.display(context)); 
         if (!isDrawing && toolPreview) {
             toolPreview.draw(context);
         } 
@@ -101,10 +135,17 @@ const redrawLines = () => {
 
 // Event listeners for mouse actions
 canvas.addEventListener("mousedown", (e) => {
-    currentLine = createMarkerLine(e.offsetX, e.offsetY, currentLineWidth);
-    isDrawing = true;
-    toolPreview = null;
-    canvas.dispatchEvent(new Event("tool-moved")); 
+    if (currentSticker) {
+        currentSticker.drag(e.offsetX, e.offsetY);
+        isDrawing = true;
+        toolPreview = null;
+        canvas.dispatchEvent(new Event("tool-moved"));
+    } else { 
+        currentLine = createMarkerLine(e.offsetX, e.offsetY, currentLineWidth);
+        isDrawing = true;
+        toolPreview = null;
+        canvas.dispatchEvent(new Event("tool-moved")); 
+    }
 });
 
 //https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/dispatchEvent
@@ -112,6 +153,12 @@ canvas.addEventListener("mousemove", (e) => {
     if (isDrawing && currentLine) {
         currentLine.drag(e.offsetX, e.offsetY);
         canvas.dispatchEvent(new Event("drawing-changed"));
+    } else if (isDrawing && currentSticker) {
+        currentSticker.drag(e.offsetX, e.offsetY);
+        canvas.dispatchEvent(new Event("drawing-changed")); 
+    } else if (currentSticker) {
+        toolPreview = createStickerPreview(e.offsetX, e.offsetY, currentSticker.emoji);
+        canvas.dispatchEvent(new Event("tool-moved")); 
     } else {
         toolPreview = createToolPreview(e.offsetX, e.offsetY, currentLineWidth);
         canvas.dispatchEvent(new Event("tool-moved")); 
@@ -125,6 +172,11 @@ globalThis.addEventListener("mouseup", () => {
         redoStack.length = 0;
         currentLine = null;
         canvas.dispatchEvent(new Event("drawing-changed"));
+    } else if (isDrawing && currentSticker) {
+        isDrawing = false;
+        stickers.push(currentSticker);
+        currentSticker = null;
+        canvas.dispatchEvent(new Event("drawing-changed")); 
     }
 });
 
@@ -139,6 +191,7 @@ app.appendChild(clearButton);
 
 clearButton.addEventListener("click", () => {
     lines.length = 0;
+    stickers.length = 0;
     redoStack.length = 0;
     if (context) {
         context.clearRect(0, 0, canvas.width, canvas.height);
@@ -202,3 +255,17 @@ thickButton.addEventListener("click", () => {
 });
 // Set default selected tool
 thinButton.classList.add("selectedTool"); 
+
+// Create buttons for stickers
+const stickerEmojis = ["🩳", "🎸", "📺"];
+stickerEmojis.forEach((emoji) => {
+    const button = document.createElement("button");
+    button.innerText = emoji;
+    button.classList.add("sticker-button");
+    app.appendChild(button);
+
+    button.addEventListener("click", () => {
+        currentSticker = createSticker(0, 0, emoji);
+        canvas.dispatchEvent(new Event("tool-moved"));
+    });
+}); 
