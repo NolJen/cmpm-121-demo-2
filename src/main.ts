@@ -28,11 +28,12 @@ if (context) {
 // When true, moving the mouse draws on the canvas
 interface MarkerLine {
     points: { x: number; y: number }[];
+    lineWidth: number;
     drag: (x: number, y: number) => void;
     display: (ctx: CanvasRenderingContext2D) => void;
 }
 
-const createMarkerLine = (startX: number, startY: number): MarkerLine => {
+const createMarkerLine = (startX: number, startY:  number, lineWidth: number): MarkerLine => {
     const points = [{ x: startX, y: startY }];
 
     const drag = (x: number, y: number) => {
@@ -44,7 +45,7 @@ const createMarkerLine = (startX: number, startY: number): MarkerLine => {
 
         ctx.beginPath();
         ctx.strokeStyle = "black";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = lineWidth;
         ctx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) {
             ctx.lineTo(points[i].x, points[i].y);
@@ -53,12 +54,13 @@ const createMarkerLine = (startX: number, startY: number): MarkerLine => {
         ctx.closePath();
     };
 
-    return { points, drag, display };
+    return { points, lineWidth, drag, display };
 };
 
 // Variables to keep track of drawing state 
 let isDrawing = false;
 let currentLine: MarkerLine | null = null;
+let currentLineWidth = 1;
 const lines: MarkerLine[] = [];
 const redoStack: MarkerLine[] = [];
 
@@ -68,15 +70,13 @@ const redrawLines = () => {
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.fillStyle = "#7EC6E5";
         context.fillRect(0, 0, canvas.width, canvas.height);
-        for (const line of lines) {
-            line.display(context);
-        }
+        lines.forEach(line => line.display(context));
     }
 };
 
 // Event listeners for mouse actions
 canvas.addEventListener("mousedown", (e) => {
-    currentLine = createMarkerLine(e.offsetX, e.offsetY);
+    currentLine = createMarkerLine(e.offsetX, e.offsetY, currentLineWidth);
     isDrawing = true;
 });
 
@@ -99,9 +99,7 @@ globalThis.addEventListener("mouseup", () => {
 });
 
 // Observer for the "drawing-changed" event
-canvas.addEventListener("drawing-changed", () => {
-    redrawLines();
-});
+canvas.addEventListener("drawing-changed", redrawLines);
 
 // Add a "clear" button and make it clear the canvas.
 const clearButton = document.createElement("button");
@@ -147,3 +145,29 @@ redoButton.addEventListener("click", () => {
         canvas.dispatchEvent(new Event("drawing-changed"));
     }
 });
+
+// Create buttons for the “thin” and “thick” marker tools.
+//https://developer.mozilla.org/en-US/docs/Web/API/Element/classList
+const thinButton = document.createElement("button");
+thinButton.innerText = "Thin";
+thinButton.classList.add("tool-button");
+app.appendChild(thinButton);	
+
+const thickButton = document.createElement("button");
+thickButton.innerText = "Thick";
+thickButton.classList.add("tool-button");
+app.appendChild(thickButton);
+
+thinButton.addEventListener("click", () => {
+    currentLineWidth = 1;
+    thinButton.classList.add("selectedTool");
+    thickButton.classList.remove("selectedTool");
+});
+
+thickButton.addEventListener("click", () => {
+    currentLineWidth = 5;
+    thickButton.classList.add("selectedTool");
+    thinButton.classList.remove("selectedTool");
+});
+// Set default selected tool
+thinButton.classList.add("selectedTool"); 
