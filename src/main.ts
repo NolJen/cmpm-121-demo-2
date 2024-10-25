@@ -9,6 +9,7 @@ document.title = APP_NAME;
 
 // Add a canvas to the webpage
 // https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API
+// https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D
 type CanvasElement = HTMLCanvasElement & { getContext: (contextId: "2d") => CanvasRenderingContext2D | null };
 
 const canvas: CanvasElement = document.createElement("canvas") as CanvasElement;
@@ -25,22 +26,41 @@ if (context) {
 
 //refrenced from https://developer.mozilla.org/en-US/docs/Web/API/Element/mousemove_event
 // When true, moving the mouse draws on the canvas
+interface MarkerLine {
+    points: { x: number; y: number }[];
+    drag: (x: number, y: number) => void;
+    display: (ctx: CanvasRenderingContext2D) => void;
+}
+
+const createMarkerLine = (startX: number, startY: number): MarkerLine => {
+    const points = [{ x: startX, y: startY }];
+
+    const drag = (x: number, y: number) => {
+        points.push({ x, y });
+    };
+
+    const display = (ctx: CanvasRenderingContext2D) => {
+        if (points.length < 2) return;
+
+        ctx.beginPath();
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 1;
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i].x, points[i].y);
+        }
+        ctx.stroke();
+        ctx.closePath();
+    };
+
+    return { points, drag, display };
+};
+
 // Variables to keep track of drawing state 
 let isDrawing = false;
-let currentLine: { x: number; y: number }[] = [];
-const lines: { x: number; y: number }[][] = [];
-const redoStack: { x: number; y: number }[][] = [];
-
-// Function to draw a line on the canvas
-const drawLine = (ctx: CanvasRenderingContext2D, startX: number, startY: number, endX: number, endY: number) => {
-    ctx.beginPath();
-    ctx.strokeStyle = "black";
-    ctx.lineWidth = 1;
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-    ctx.closePath();
-};
+let currentLine: MarkerLine | null = null;
+const lines: MarkerLine[] = [];
+const redoStack: MarkerLine[] = [];
 
 // Function to redraw all lines
 const redrawLines = () => {
@@ -49,31 +69,31 @@ const redrawLines = () => {
         context.fillStyle = "#7EC6E5";
         context.fillRect(0, 0, canvas.width, canvas.height);
         for (const line of lines) {
-            for (let i = 1; i < line.length; i++) {
-                drawLine(context, line[i - 1].x, line[i - 1].y, line[i].x, line[i].y);
-            }
+            line.display(context);
         }
     }
 };
 
 // Event listeners for mouse actions
 canvas.addEventListener("mousedown", (e) => {
-    currentLine = [{ x: e.offsetX, y: e.offsetY }];
+    currentLine = createMarkerLine(e.offsetX, e.offsetY);
     isDrawing = true;
 });
 
+//https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/dispatchEvent
 canvas.addEventListener("mousemove", (e) => {
-    if (isDrawing) {
-        currentLine.push({ x: e.offsetX, y: e.offsetY });
+    if (isDrawing && currentLine) {
+        currentLine.drag(e.offsetX, e.offsetY);
         canvas.dispatchEvent(new Event("drawing-changed"));
     }
 });
 
 globalThis.addEventListener("mouseup", () => {
-    if (isDrawing) {
+    if (isDrawing && currentLine) {
         isDrawing = false;
         lines.push(currentLine);
         redoStack.length = 0;
+        currentLine = null;
         canvas.dispatchEvent(new Event("drawing-changed"));
     }
 });
