@@ -33,7 +33,14 @@ interface MarkerLine {
     display: (ctx: CanvasRenderingContext2D) => void;
 }
 
-const createMarkerLine = (startX: number, startY:  number, lineWidth: number): MarkerLine => {
+interface ToolPreview {
+    x: number;
+    y: number;
+    lineWidth: number
+    draw: (ctx: CanvasRenderingContext2D) => void;
+} 
+
+const createMarkerLine = (startX: number, startY: number, lineWidth: number): MarkerLine => {
     const points = [{ x: startX, y: startY }];
 
     const drag = (x: number, y: number) => {
@@ -57,20 +64,38 @@ const createMarkerLine = (startX: number, startY:  number, lineWidth: number): M
     return { points, lineWidth, drag, display };
 };
 
+const createToolPreview = (x: number, y: number, lineWidth: number): ToolPreview => {
+    const draw = (ctx: CanvasRenderingContext2D) => {
+        ctx.beginPath();
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 1;
+        ctx.arc(x, y, lineWidth / 2, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.closePath();
+    };
+
+    return { x, y, lineWidth, draw };
+}; 
+
+
 // Variables to keep track of drawing state 
 let isDrawing = false;
 let currentLine: MarkerLine | null = null;
 let currentLineWidth = 1;
+let toolPreview: ToolPreview | null = null;
 const lines: MarkerLine[] = [];
 const redoStack: MarkerLine[] = [];
 
-// Function to redraw all lines
+// Function to redraw all lines and tool preview
 const redrawLines = () => {
     if (context) {
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.fillStyle = "#7EC6E5";
         context.fillRect(0, 0, canvas.width, canvas.height);
         lines.forEach(line => line.display(context));
+        if (!isDrawing && toolPreview) {
+            toolPreview.draw(context);
+        } 
     }
 };
 
@@ -78,6 +103,8 @@ const redrawLines = () => {
 canvas.addEventListener("mousedown", (e) => {
     currentLine = createMarkerLine(e.offsetX, e.offsetY, currentLineWidth);
     isDrawing = true;
+    toolPreview = null;
+    canvas.dispatchEvent(new Event("tool-moved")); 
 });
 
 //https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/dispatchEvent
@@ -85,6 +112,9 @@ canvas.addEventListener("mousemove", (e) => {
     if (isDrawing && currentLine) {
         currentLine.drag(e.offsetX, e.offsetY);
         canvas.dispatchEvent(new Event("drawing-changed"));
+    } else {
+        toolPreview = createToolPreview(e.offsetX, e.offsetY, currentLineWidth);
+        canvas.dispatchEvent(new Event("tool-moved")); 
     }
 });
 
@@ -100,6 +130,7 @@ globalThis.addEventListener("mouseup", () => {
 
 // Observer for the "drawing-changed" event
 canvas.addEventListener("drawing-changed", redrawLines);
+canvas.addEventListener("tool-moved", redrawLines);
 
 // Add a "clear" button and make it clear the canvas.
 const clearButton = document.createElement("button");
