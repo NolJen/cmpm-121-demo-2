@@ -24,11 +24,21 @@ if (context) {
     context.fillRect(0, 0, canvas.width, canvas.height);
 }
 
+const generateRandomColor = (): string => {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}; 
+
 //refrenced from https://developer.mozilla.org/en-US/docs/Web/API/Element/mousemove_event
 // When true, moving the mouse draws on the canvas
 interface MarkerLine {
     points: { x: number; y: number }[];
     lineWidth: number;
+    color: string;
     drag: (x: number, y: number) => void;
     display: (ctx: CanvasRenderingContext2D) => void;
 }
@@ -37,6 +47,7 @@ interface ToolPreview {
     x: number;
     y: number;
     lineWidth: number;
+    color?: string;
     draw: (ctx: CanvasRenderingContext2D) => void;
 } 
 
@@ -48,7 +59,7 @@ interface Sticker {
     display: (ctx: CanvasRenderingContext2D) => void;
 } 
 
-const createMarkerLine = (startX: number, startY: number, lineWidth: number): MarkerLine => {
+const createMarkerLine = (startX: number, startY: number, lineWidth: number, color: string): MarkerLine => {
     const points = [{ x: startX, y: startY }];
 
     const drag = (x: number, y: number) => {
@@ -59,7 +70,7 @@ const createMarkerLine = (startX: number, startY: number, lineWidth: number): Ma
         if (points.length < 2) return;
 
         ctx.beginPath();
-        ctx.strokeStyle = "black";
+        ctx.strokeStyle = color;
         ctx.lineWidth = lineWidth;
         ctx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) {
@@ -69,20 +80,20 @@ const createMarkerLine = (startX: number, startY: number, lineWidth: number): Ma
         ctx.closePath();
     };
 
-    return { points, lineWidth, drag, display };
+    return { points, lineWidth, color, drag, display };
 };
 
-const createToolPreview = (x: number, y: number, lineWidth: number): ToolPreview => {
+const createToolPreview = (x: number, y: number, lineWidth: number, color? : string): ToolPreview => {
     const draw = (ctx: CanvasRenderingContext2D) => {
         ctx.beginPath();
-        ctx.strokeStyle = "red";
+        ctx.strokeStyle = color || "red";
         ctx.lineWidth = 1;
         ctx.arc(x, y, lineWidth / 2, 0, 2 * Math.PI);
         ctx.stroke();
         ctx.closePath();
     };
 
-    return { x, y, lineWidth, draw };
+    return { x, y, lineWidth, color, draw };
 }; 
 
 const createSticker = (x: number, y: number, emoji: string): Sticker => {
@@ -113,6 +124,7 @@ const createStickerPreview = (x: number, y: number, emoji: string): ToolPreview 
 let isDrawing = false;
 let currentLine: MarkerLine | null = null;
 let currentLineWidth = 1;
+let currentLineColor = "black";
 let toolPreview: ToolPreview | null = null;
 let currentSticker: Sticker | null = null;
 const lines: MarkerLine[] = [];
@@ -141,7 +153,7 @@ canvas.addEventListener("mousedown", (e) => {
         toolPreview = null;
         canvas.dispatchEvent(new Event("tool-moved"));
     } else { 
-        currentLine = createMarkerLine(e.offsetX, e.offsetY, currentLineWidth);
+        currentLine = createMarkerLine(e.offsetX, e.offsetY, currentLineWidth, currentLineColor);
         isDrawing = true;
         toolPreview = null;
         canvas.dispatchEvent(new Event("tool-moved")); 
@@ -160,7 +172,7 @@ canvas.addEventListener("mousemove", (e) => {
         toolPreview = createStickerPreview(e.offsetX, e.offsetY, currentSticker.emoji);
         canvas.dispatchEvent(new Event("tool-moved")); 
     } else {
-        toolPreview = createToolPreview(e.offsetX, e.offsetY, currentLineWidth);
+        toolPreview = createToolPreview(e.offsetX, e.offsetY, currentLineWidth, currentLineColor);
         canvas.dispatchEvent(new Event("tool-moved")); 
     }
 });
@@ -240,12 +252,14 @@ app.appendChild(thickButton);
 
 thinButton.addEventListener("click", () => {
     currentLineWidth = 1;
+    currentLineColor = generateRandomColor();
     thinButton.classList.add("selectedTool");
     thickButton.classList.remove("selectedTool"); 
 });
 
 thickButton.addEventListener("click", () => {
     currentLineWidth = 10;
+    currentLineColor = generateRandomColor();
     thickButton.classList.add("selectedTool");
     thinButton.classList.remove("selectedTool");
 });
@@ -296,25 +310,20 @@ exportButton.innerText = "Export";
 app.appendChild(exportButton);
 
 exportButton.addEventListener("click", () => {
-    // Create a new canvas of size 1024x1024
     const exportCanvas = document.createElement("canvas") as CanvasElement;
     exportCanvas.width = 1024;
     exportCanvas.height = 1024;
     const exportContext = exportCanvas.getContext("2d");
 
     if (exportContext) {
-        // Scale the context to 4x the original size
         exportContext.scale(4, 4);
 
-        // Fill the background
         exportContext.fillStyle = "#7EC6E5";
         exportContext.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Redraw all lines and stickers on the new canvas
         lines.forEach(line => line.display(exportContext));
         stickers.forEach(sticker => sticker.display(exportContext));
 
-        // Trigger a download of the canvas content as a PNG file
         const anchor = document.createElement("a");
         anchor.href = exportCanvas.toDataURL("image/png");
         anchor.download = "sketchpad.png";
