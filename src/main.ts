@@ -193,11 +193,7 @@ clearButton.addEventListener("click", () => {
     lines.length = 0;
     stickers.length = 0;
     redoStack.length = 0;
-    if (context) {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.fillStyle = "#7EC6E5";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-    }
+    redrawLines();
 });
 
 // Add an "undo" button
@@ -258,14 +254,39 @@ thinButton.classList.add("selectedTool");
 
 // Create buttons for stickers
 const stickerEmojis = ["🩳", "🎸", "📺"];
-stickerEmojis.forEach((emoji) => {
+
+// Function to create a sticker button
+type StickerButtonClickHandler = (emoji: string) => void;
+
+const createStickerButton = (emoji: string, clickHandler: StickerButtonClickHandler) => {
     const button = document.createElement("button");
     button.innerText = emoji;
     button.classList.add("sticker-button");
     app.appendChild(button);
 
-    button.addEventListener("click", () => {
+    button.addEventListener("click", () => clickHandler(emoji));
+};
+
+// Add buttons for initial stickers
+stickerEmojis.forEach((emoji) => {
+    createStickerButton(emoji, (emoji) => {
         currentSticker = createSticker(0, 0, emoji);
         canvas.dispatchEvent(new Event("tool-moved"));
     });
-}); 
+});
+
+// Add "Create Custom Sticker" button
+//https://developer.mozilla.org/en-US/docs/Web/API/Window/prompt
+const customStickerButton = document.createElement("button");
+customStickerButton.innerText = "Create Custom Sticker";
+app.appendChild(customStickerButton);
+
+customStickerButton.addEventListener("click", () => {
+    const customEmoji = prompt("Enter a custom sticker:", "🧽");
+    if (customEmoji) {
+        createStickerButton(customEmoji, (emoji) => {
+            currentSticker = createSticker(0, 0, emoji);
+            canvas.dispatchEvent(new Event("tool-moved"));
+        });
+    }
+});
