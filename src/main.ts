@@ -290,3 +290,34 @@ customStickerButton.addEventListener("click", () => {
         });
     }
 });
+// Add an "export" button
+const exportButton = document.createElement("button");
+exportButton.innerText = "Export";
+app.appendChild(exportButton);
+
+exportButton.addEventListener("click", () => {
+    // Create a new canvas of size 1024x1024
+    const exportCanvas = document.createElement("canvas") as CanvasElement;
+    exportCanvas.width = 1024;
+    exportCanvas.height = 1024;
+    const exportContext = exportCanvas.getContext("2d");
+
+    if (exportContext) {
+        // Scale the context to 4x the original size
+        exportContext.scale(4, 4);
+
+        // Fill the background
+        exportContext.fillStyle = "#7EC6E5";
+        exportContext.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Redraw all lines and stickers on the new canvas
+        lines.forEach(line => line.display(exportContext));
+        stickers.forEach(sticker => sticker.display(exportContext));
+
+        // Trigger a download of the canvas content as a PNG file
+        const anchor = document.createElement("a");
+        anchor.href = exportCanvas.toDataURL("image/png");
+        anchor.download = "sketchpad.png";
+        anchor.click();
+    }
+});
