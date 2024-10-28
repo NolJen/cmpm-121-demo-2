@@ -92,7 +92,7 @@ const createSticker = (x: number, y: number, emoji: string): Sticker => {
     };
 
     const display = (ctx: CanvasRenderingContext2D) => {
-        ctx.font = "30px serif";
+        ctx.font = "50px serif";
         ctx.fillText(emoji, x, y);
     };
 
@@ -101,7 +101,7 @@ const createSticker = (x: number, y: number, emoji: string): Sticker => {
 
 const createStickerPreview = (x: number, y: number, emoji: string): ToolPreview => {
     const draw = (ctx: CanvasRenderingContext2D) => {
-        ctx.font = "30px serif";
+        ctx.font = "50px serif";
         ctx.fillText(emoji, x, y);
     };
 
@@ -241,11 +241,11 @@ app.appendChild(thickButton);
 thinButton.addEventListener("click", () => {
     currentLineWidth = 1;
     thinButton.classList.add("selectedTool");
-    thickButton.classList.remove("selectedTool");
+    thickButton.classList.remove("selectedTool"); 
 });
 
 thickButton.addEventListener("click", () => {
-    currentLineWidth = 5;
+    currentLineWidth = 10;
     thickButton.classList.add("selectedTool");
     thinButton.classList.remove("selectedTool");
 });
